@@ -30,90 +30,84 @@ STEP-5: Combine all these groups to get the complete cipher text.
 
 ## PROGRAM :
  ```
-#include <stdio.h>  
-#include <string.h>  
-#include <ctype.h> 
-int keymat[3][3] = { { 1, 2, 1 }, { 2, 3, 2 }, { 2, 2, 1 } };  
-int invkeymat[3][3] = { { -1, 0, 1 }, { 2, -1, 0 }, { -2, 2, -1 } };  
-char key[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+import numpy as np
 
-void encode(char a, char b, char c, char ret[])  
-{
-    int x, y, z;  
-    int posa = (int)a - 65;  
-    int posb = (int)b - 65;  
-    int posc = (int)c - 65; 
-    x = posa * keymat[0][0] + posb * keymat[1][0] + posc * keymat[2][0]; 
-    y = posa * keymat[0][1] + posb * keymat[1][1] + posc * keymat[2][1]; 
-    z = posa * keymat[0][2] + posb * keymat[1][2] + posc * keymat[2][2]; 
-    ret[0] = key[x % 26]; 
-    ret[1] = key[y % 26]; 
-    ret[2] = key[z % 26]; 
-    ret[3] = '\0';
-}
+# Convert text to numbers
+def text_to_numbers(text):
+    return [ord(char) - ord('A') for char in text]
 
-void decode(char a, char b, char c, char ret[])  
-{  
-    int x, y, z;  
-    int posa = (int)a - 65;  
-    int posb = (int)b - 65;  
-    int posc = (int)c - 65; 
-    x = posa * invkeymat[0][0] + posb * invkeymat[1][0] + posc * invkeymat[2][0]; 
-    y = posa * invkeymat[0][1] + posb * invkeymat[1][1] + posc * invkeymat[2][1]; 
-    z = posa * invkeymat[0][2] + posb * invkeymat[1][2] + posc * invkeymat[2][2]; 
-    ret[0] = key[(x % 26 < 0) ? (26 + x % 26) : (x % 26)]; 
-    ret[1] = key[(y % 26 < 0) ? (26 + y % 26) : (y % 26)]; 
-    ret[2] = key[(z % 26 < 0) ? (26 + z % 26) : (z % 26)]; 
-    ret[3] = '\0'; 
-}
+# Convert numbers to text
+def numbers_to_text(numbers):
+    return ''.join(chr(num + ord('A')) for num in numbers)
 
-int main()  
-{  
-    char msg[1000];  
-    char enc[1000] = "";  
-    char dec[1000] = "";  
-    int n; 
-    strcpy(msg, "SATHYAA"); 
-    printf("Input message : %s\n", msg); 
-    for (int i = 0; i < strlen(msg); i++)  
-    {
-        msg[i] = toupper(msg[i]); 
-    } 
-    n = strlen(msg) % 3; 
-    if (n != 0)  
-    {
-        for (int i = 1; i <= (3 - n); i++)  
-        {
-            strcat(msg, "X");
-        } 
-    } 
-    printf("Padded message : %s\n", msg);
-    for (int i = 0; i < strlen(msg); i += 3)  
-    {
-        char a = msg[i]; 
-        char b = msg[i + 1]; 
-        char c = msg[i + 2]; 
-        char encoded[4]; 
-        encode(a, b, c, encoded); 
-        strcat(enc, encoded); 
-    }
-    printf("Encoded message : %s\n", enc); 
-    for (int i = 0; i < strlen(enc); i += 3)
-    {
-        char a = enc[i]; 
-        char b = enc[i + 1]; 
-        char c = enc[i + 2]; 
-        char decoded[4]; 
-        decode(a, b, c, decoded); 
-        strcat(dec, decoded);
-    }
-    printf("Decoded message : %s\n", dec); 
-    return 0;
-}
+# Encrypt message
+def encrypt(plain_text, key_matrix):
+    n = len(key_matrix)
+    plain_text = plain_text.upper().replace(" ", "")
+
+    # Padding if needed
+    while len(plain_text) % n != 0:
+        plain_text += 'X'  
+    
+    numbers = text_to_numbers(plain_text)
+    encrypted_numbers = []
+    
+    # Apply matrix multiplication
+    for i in range(0, len(numbers), n):
+        block = np.array(numbers[i:i+n]).reshape(n, 1)
+        encrypted_block = np.dot(key_matrix, block) % 26
+        encrypted_numbers.extend(encrypted_block.flatten().tolist())
+
+    return numbers_to_text(encrypted_numbers)
+
+# Decrypt message
+def decrypt(cipher_text, key_matrix):
+    n = len(key_matrix)
+    numbers = text_to_numbers(cipher_text)
+
+    # Compute modular inverse of the key matrix
+    det = int(round(np.linalg.det(key_matrix)))  # Determinant
+    det_inv = pow(det, -1, 26)  # Modular inverse
+    
+    adjugate = np.round(det * np.linalg.inv(key_matrix)).astype(int) % 26
+    key_inv = (det_inv * adjugate) % 26
+
+    decrypted_numbers = []
+    
+    for i in range(0, len(numbers), n):
+        block = np.array(numbers[i:i+n]).reshape(n, 1)
+        decrypted_block = np.dot(key_inv, block) % 26
+        decrypted_numbers.extend(decrypted_block.flatten().tolist())
+
+    return numbers_to_text(decrypted_numbers)
+
+# Get user input
+plaintext = input("Enter the plaintext (only letters): ").upper().replace(" ", "")
+size = int(input("Enter the size of the key matrix (e.g., 2 for 2x2, 3 for 3x3): "))
+
+# Get the key matrix from user
+key_matrix = []
+print(f"Enter the {size}x{size} key matrix row by row (only integers):")
+for i in range(size):
+    row = list(map(int, input().split()))
+    key_matrix.append(row)
+
+key_matrix = np.array(key_matrix)
+
+# Encrypt and decrypt
+ciphertext = encrypt(plaintext, key_matrix)
+decrypted_text = decrypt(ciphertext, key_matrix)
+
+print("\nPlaintext:", plaintext)
+print("Ciphertext:", ciphertext)
+print("Decrypted Text:", decrypted_text)
+
+
 ```
 
 ## OUTPUT:
-<img width="422" height="155" alt="image" src="https://github.com/user-attachments/assets/3ba3eb72-80df-420c-a0c3-569d31bc26c1" />
+<img width="689" height="435" alt="image" src="https://github.com/user-attachments/assets/3c97a8f5-60da-4f08-9d7a-11ad2fc10af9" />
+
 
 
 ## RESULT
